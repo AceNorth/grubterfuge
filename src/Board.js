@@ -14,7 +14,7 @@ class Board extends React.Component{
   constructor (props) {
     super(props);
     this.state = {
-      selectedNode: null,
+      selectedNodeId: null,
       playerPoints: 0,
       playerMPH: 6.0,
       board: [
@@ -47,7 +47,7 @@ class Board extends React.Component{
   selectNode = number => {
     console.log("number", number)
     this.setState({
-      selectedNode: number,
+      selectedNodeId: number,
     })
   }
 
@@ -72,8 +72,8 @@ class Board extends React.Component{
           <Node
             key={index}
             onClick={() => this.selectNode(index)}
-            selected={index === this.state.selectedNode}
-            boosted={index === this.state.selectedNode}
+            selected={index === this.state.selectedNodeId}
+            boosted={index === this.state.selectedNodeId}
             onTick={() => this.onTick(index)}
             playerMPH={this.state.playerMPH}
             rowNumber={index}
@@ -91,6 +91,17 @@ class Board extends React.Component{
     return <div key={rowNumber} className="chess_row">{row}</div>
   }
 
+  renderSidebar = () => {
+    return (
+      <div className="sidebar">
+        HELLOOOOOOOO
+        <div>
+          {this.state.selectedNodeId}
+        </div>
+      </div>
+    )
+  }
+
   render() {
    let rows = []
    for(var i=0;i<=7;i++){
@@ -99,8 +110,11 @@ class Board extends React.Component{
       )
    }
    return (
-    <div className="chess_board">
-      {rows}
+    <div className="container">
+      <div className="chess_board">
+        {rows}
+      </div>
+      {this.renderSidebar()}
     </div>
    );
   }
