@@ -5,7 +5,7 @@ import classnames from 'classnames';
 // timing constants
 
 // how often bases update - eventually should be once/minute?
-const BASE_TICK_INTERVAL = 3000;
+const BASE_TICK_INTERVAL = 500;
 
 // how often mines update - eventually once every five minutes?
 const MINE_TICK_INTERVAL = BASE_TICK_INTERVAL * 5;
@@ -19,26 +19,36 @@ class Board extends React.Component{
       playerMPH: 6.0,
       board: [
         {
+          name: "Cool Base 1",
           drillers: 0,
+          isMine: false,
           isPlayerControlled: true,
-          id: 1,
+          index: 0,
         }, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, {
+          name: "Cool Base 2",
           drillers: 0,
-          isMine: true,
-          id: 2,
+          isMine: false,
+          isPlayerControlled: false,
+          index: 28,
         }, null, null, null,
         null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, {
+          name: "Cool Base 3",
           drillers: 0,
-          id: 3,
+          isMine: false,
+          isPlayerControlled: false,
+          index: 46,
         }, null,
         null, null, null, null, null, null, null, null,
         null, {
+          name: "Cool Base 4",
           drillers: 0,
-          id: 4,
+          isMine: false,
+          isPlayerControlled: false,
+          index: 57,
         }, null, null, null, null, null, null,
       ]
     }
@@ -61,13 +71,18 @@ class Board extends React.Component{
     })
   }
 
+  onMineTick = () => {
+    this.setState({
+      playerPoints: this.state.playerPoints + 1,
+    })
+  }
+
   renderRow = rowNumber => {
     let row=[];
     for (let i=0; i<=7; i++) {
       const index = (rowNumber * 8) + i;
       if (this.state.board[index]) {
         const base = this.state.board[index];
-        console.log("BASE!", base)
         row.push(
           <Node
             key={index}
@@ -75,10 +90,11 @@ class Board extends React.Component{
             selected={index === this.state.selectedNodeId}
             boosted={index === this.state.selectedNodeId}
             onTick={() => this.onTick(index)}
+            onMineTick={this.onMineTick}
             playerMPH={this.state.playerMPH}
             rowNumber={index}
             playerControlled={base.isPlayerControlled}
-            mine={base.isMine}
+            isMine={base.isMine}
             drillers={base.drillers}
           />
         )
@@ -92,14 +108,44 @@ class Board extends React.Component{
   }
 
   renderSidebar = () => {
+    const selectedBase = this.state.board[this.state.selectedNodeId] || {};
     return (
       <div className="sidebar">
-        HELLOOOOOOOO
         <div>
-          {this.state.selectedNodeId}
+          PLAYER POINTS: {this.state.playerPoints}
+          {selectedBase.name}
         </div>
+        {this.renderMineButton(selectedBase)}
+        {this.renderAttackButtons(selectedBase)}
       </div>
     )
+  }
+
+  renderMineButton = base => {
+    if (base.isMine) return;
+    return (
+      <button
+        onClick={() => this.makeMine(base.index)}
+        disabled={base.drillers < 20}
+      >
+        MAKE MINE
+      </button>
+    );
+  }
+
+  makeMine = baseIndex => {
+    let newBoard = this.state.board;
+    let updatedBase = newBoard[baseIndex];
+    updatedBase.drillers -= 20;
+    updatedBase.isMine = true;
+    newBoard[baseIndex] = updatedBase;
+    this.setState({
+      board: newBoard,
+    })
+  }
+
+  renderAttackButtons = base => {
+    return `ATTACK BUTTONS FOR ${base.name}`
   }
 
   render() {
@@ -121,34 +167,49 @@ class Board extends React.Component{
 }
 
 class Node extends React.Component {
-  // constructor(props) {
-  //   super(props);
-  //   this.state = {
-  //     drillers: 0,
-  //   }
-  // }
 
   componentDidMount = () => {
     if (this.props.playerControlled || this.props.opponentControlled) {
-      // produce drillers if the node is controlled
-      if (this.props.boosted) {
-        // increase production if the node is being boosted
-        this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL / 2);
+      // generate points if the mine is controlled
+      if (this.props.isMine) {
+        if (this.props.boosted) {
+          // increase production if the node is being boosted
+          this.timerId = setInterval(this.props.onMineTick, MINE_TICK_INTERVAL / 2);
+        } else {
+          this.timerId = setInterval(this.props.onMineTick, MINE_TICK_INTERVAL);
+        }
       } else {
-        this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL);
+        // produce drillers if the node is controlled
+        if (this.props.boosted) {
+          // increase production if the node is being boosted
+          this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL / 2);
+        } else {
+          this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL);
+        }
       }
     }
   }
 
   componentWillReceiveProps = nextProps => {
-    if (this.props.playerControlled || this.props.opponentControlled) {
-      if (!this.props.boosted && nextProps.boosted) {
+    if (nextProps.playerControlled || nextProps.opponentControlled) {
+      // if the node is changing boosted or mine status,
+      // clear and reset the timer
+      if (
+        this.props.boosted !== nextProps.boosted ||
+        this.props.isMine !== nextProps.isMine
+        ) {
         clearInterval(this.timerId);
-        this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL / 2);
-      }
-      if (this.props.boosted && !nextProps.boosted) {
-        clearInterval(this.timerId);
-        this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL);
+        if (nextProps.boosted) {
+          // the node is boosted - ticks are accelerated
+          this.timerId = nextProps.isMine ?
+            this.timerId = setInterval(this.props.onMineTick, MINE_TICK_INTERVAL / 2) :
+            this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL / 2)
+        } else {
+          // the node is not boosted, ticks are at normal pace
+          this.timerId = nextProps.isMine ?
+            this.timerId = setInterval(this.props.onMineTick, MINE_TICK_INTERVAL) :
+            this.timerId = setInterval(this.props.onTick, BASE_TICK_INTERVAL)
+        }
       }
     }
   }
@@ -161,7 +222,7 @@ class Node extends React.Component {
           selected: this.props.selected,
           playerControlled: this.props.playerControlled,
           opponentControlled: this.props.opponentControlled,
-          mine: this.props.mine,
+          mine: this.props.isMine,
         })}
         onClick={this.props.onClick}>
         {this.props.drillers}
